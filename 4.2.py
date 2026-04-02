@@ -15,10 +15,33 @@ p.resetDebugVisualizerCamera(1.5, 45, -30, [0.5, 0, 0.65])
 p.loadURDF("plane.urdf")
 table_pos = [0.5, 0, 0] 
 p.loadURDF("table/table.urdf", table_pos, useFixedBase=True)
+table_height = 0.625          # 桌面高度
+cube_half_height = 0.025       # cube_small.urdf 边长 0.05 m，半高 0.025
+cube_start_pos = [0.3, 0.0, table_height + cube_half_height]
+cube_start_orientation = p.getQuaternionFromEuler([0, 0, 0])
+cube_id = p.loadURDF(
+    "cube_small.urdf",
+    cube_start_pos,
+    cube_start_orientation,
+    globalScaling=1.5
+)
 
 # 로봇 암 로드 (테이블 위에 고정) | 加载并固定机器人 | Load & fix robot on table
 panda_pos = [0.5, 0, 0.625] # Z=0.625는 테이블 높이 | 桌面高度 | Table height
 pandaId = p.loadURDF("franka_panda/panda.urdf", panda_pos, useFixedBase=True)
+def control_gripper(robot_id, open=True):
+    if open:
+        target = 0.04   # 张开
+    else:
+        target = 0.0    # 闭合
+    for j in [9, 10]:  # Panda 夹爪两个关节
+        p.setJointMotorControl2(
+            robot_id,
+            j,
+            p.POSITION_CONTROL,
+            targetPosition=target,
+            force=50
+        )
 
 # --- 2. 컨트롤 패널 생성 | 创建控制面板 | Create Control Panel ---
 # 모드 전환 스위치 (체크 시 IK 모드) | 模式切换开关 | Mode toggle (Checked = IK)
@@ -43,35 +66,83 @@ info_id = -1 # 디버그 텍스트 ID | 调试文本ID | Debug text ID
 
 # --- 3. 메인 로직 루프 | 核心逻辑循环 | Main Logic Loop ---
 try:
-    t = 0
+    initial_joints = [0, -0.5, 0, -2.0, 0, 1.5, 0.7]
+    for i in range(7):
+        p.resetJointState(pandaId, i, initial_joints[i])
+
+    # 让仿真稳定几步
+    for _ in range(100):
+        p.stepSimulation()
+
+    cid = None
+    t = 0.0
     while True:
         # 스위치 상태 확인 | 读取开关状态 | Read mode toggle state
         run_ik = p.readUserDebugParameter(mode_toggle)
         
         if run_ik > 0.5:
-            radius = 0.15
-            speed = 1.5
+    # ---- 自动抓取方块 ----
+    # Panda 夹爪目标位置
+            print(f"run_ik = {run_ik}, t = {t}")
+            approach_cube = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.40]
+            above_cube    = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.50]
+            lift_cube     = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.55]
 
-            tx = 0.6 + radius * math.cos(t * speed)
-            ty = 0.0 + radius * math.sin(t * speed)
-            tz = 0.8 + 0.05 * math.sin(t * speed * 2)
+            # 动作按时间段
+            if t < 2:
+                target_pos = above_cube
+                control_gripper(pandaId, open=True)
+            elif t < 4:
+                target_pos = approach_cube
+                control_gripper(pandaId, open=True)
+            elif t < 6:
+                target_pos = approach_cube
+                control_gripper(pandaId, open=False)
 
-            t += 1./120.
+                ee_pos = p.getLinkState(pandaId, 11)[0]
+                dist = sum((a-b)**2 for a,b in zip(ee_pos, approach_cube))**0.5
+                print(f"dist={dist:.4f}  EE={[round(x,3) for x in ee_pos]}  target={approach_cube}")
+                if dist < 0.05 and cid is None:
+                    cid = p.createConstraint(
+                        parentBodyUniqueId=pandaId,
+                        parentLinkIndex=11,
+                        childBodyUniqueId=cube_id,
+                        childLinkIndex=-1,
+                        jointType=p.JOINT_FIXED,
+                        jointAxis=[0,0,0],
+                        parentFramePosition=[0,0,0.05],
+                        childFramePosition=[0,0,0]
+                    )
+            elif t < 8:
+                target_pos = lift_cube
+            else:
+                t = 0.0
+                if cid is not None:
+                    p.removeConstraint(cid)
+                    cid = None
+                continue
 
+            # IK 计算
             joint_poses = p.calculateInverseKinematics(
-                pandaId, 11, [tx, ty, tz],
-                p.getQuaternionFromEuler([math.pi, 0, 0])
+                pandaId,
+                11,
+                target_pos,
+                p.getQuaternionFromEuler([math.pi, 0, 0]),
+                maxNumIterations=100,
+                residualThreshold=0.001
             )
-
             for i in range(7):
                 p.setJointMotorControl2(
-                    pandaId, i,
+                    pandaId,
+                    i,
                     p.POSITION_CONTROL,
-                    joint_poses[i],
-                    force=500
+                    targetPosition=joint_poses[i],
+                    force=5000,
+                    maxVelocity=1.0
                 )
 
-            mode_str = "AUTO MODE: DRAWING CIRCLE"
+            t += 1./120.
+            mode_str = "AUTO MODE: PICK & PLACE"
         
         else:
             # ======= 모드 2: 관절 직접 제어 (FK) | 模式2: 关节直接控制 | Mode 2: Joint Direct Control =======
