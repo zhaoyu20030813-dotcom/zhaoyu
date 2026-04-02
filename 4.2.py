@@ -17,7 +17,7 @@ table_pos = [0.5, 0, 0]
 p.loadURDF("table/table.urdf", table_pos, useFixedBase=True)
 table_height = 0.625          # 桌面高度
 cube_half_height = 0.025       # cube_small.urdf 边长 0.05 m，半高 0.025
-cube_start_pos = [0.3, 0.0, table_height + cube_half_height]
+cube_start_pos = [0.5, 0.0, table_height + cube_half_height]
 cube_start_orientation = p.getQuaternionFromEuler([0, 0, 0])
 cube_id = p.loadURDF(
     "cube_small.urdf",
@@ -27,7 +27,7 @@ cube_id = p.loadURDF(
 )
 
 # 로봇 암 로드 (테이블 위에 고정) | 加载并固定机器人 | Load & fix robot on table
-panda_pos = [0.5, 0, 0.625] # Z=0.625는 테이블 높이 | 桌面高度 | Table height
+panda_pos = [0.0, 0, 0.625] # Z=0.625는 테이블 높이 | 桌面高度 | Table height
 pandaId = p.loadURDF("franka_panda/panda.urdf", panda_pos, useFixedBase=True)
 def control_gripper(robot_id, open=True):
     if open:
@@ -84,9 +84,9 @@ try:
     # ---- 自动抓取方块 ----
     # Panda 夹爪目标位置
             print(f"run_ik = {run_ik}, t = {t}")
-            approach_cube = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.40]
-            above_cube    = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.50]
-            lift_cube     = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.55]
+            above_cube    = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.15]
+            approach_cube = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.05]
+            lift_cube     = [cube_start_pos[0], cube_start_pos[1], cube_start_pos[2] + 0.25]
 
             # 动作按时间段
             if t < 2:
@@ -131,6 +131,7 @@ try:
                 maxNumIterations=100,
                 residualThreshold=0.001
             )
+            print(f"joint_poses = {[round(x,3) for x in joint_poses[:7]]}")  # ← 加这行
             for i in range(7):
                 p.setJointMotorControl2(
                     pandaId,
@@ -145,21 +146,18 @@ try:
             mode_str = "AUTO MODE: PICK & PLACE"
         
         else:
-            # ======= 모드 2: 관절 직접 제어 (FK) | 模式2: 关节直接控制 | Mode 2: Joint Direct Control =======
+    
             for i in range(7):
                 target_val = p.readUserDebugParameter(joint_params[i])
                 p.setJointMotorControl2(pandaId, i, p.POSITION_CONTROL, target_val, force=500)
             
             mode_str = "CURRENT MODE: JOINT SPACE (Direct)"
 
-        # --- 4. 데이터 피드백 표시 | 数据反馈显示 | Data Feedback Display ---
-        # 엔드 이펙터 실제 위치 획득 (순운동학 결과) | 获取末端实际位置 | Get actual EE position (FK result)
         ee_state = p.getLinkState(pandaId, 11)
         curr_p = ee_state[0]
-        # 실제 관절 각도 읽기 | 读取实际关节角度 | Read actual joint states
+
         curr_j = [p.getJointState(pandaId, i)[0] for i in range(7)]
 
-        # 화면 텍스트 업데이트 | 更新屏幕文本 | Update screen text
         if info_id != -1:
             p.removeUserDebugItem(info_id)
         
@@ -167,14 +165,13 @@ try:
         display_text += f"End-Effector [X,Y,Z]: [{curr_p[0]:.2f}, {curr_p[1]:.2f}, {curr_p[2]:.2f}]\n"
         display_text += "-"*30 + "\n"
         display_text += "Real-time Joints (rad):\n" + "\n".join([f"J{i}: {curr_j[i]:.2f}" for i in range(7)])
-        
-        # 텍스트 위치 및 색상 설정 | 设置文本位置与颜色 | Set text position and color
+
         info_id = p.addUserDebugText(display_text, [0.4, -0.8, 0.8], [0,0,0], 1.2)
 
-        p.stepSimulation() # 시뮬레이션 한 단계 진행 | 步进仿真 | Step simulation
-        time.sleep(1./120.) # 실행 속도 조절 | 控制运行频率 | Control execution frequency
+        p.stepSimulation()
+        time.sleep(1./120.)
 
 except Exception as e:
     print(f"Error occurred: {e}")
 finally:
-    p.disconnect() # 연결 종료 | 断开连接 | Disconnect
+    p.disconnect()
