@@ -21,6 +21,6 @@
 
 ## 项目说明
 
-本项目使用 GitHub Pages 自动部署。
+本项目使用 GitHub Pages 自动部署
 
 在线访问：[👉 https://zhaoyu20030813-dotcom.github.io/zhaoyu/](👉 https://zhaoyu20030813-dotcom.github.io/zhaoyu/)
