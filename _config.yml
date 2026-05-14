@@ -1,4 +1,5 @@
-title: AI 机器人课程作业
-description: ROS2 + Docker + GitHub 学习记录
+title: 🤖 AI Robotics Course
+description: ROS2 + Docker + GitHub Learning Notes
 
-theme: jekyll-theme-architect
+theme: jekyll-theme-slate
+show_downloads: false
