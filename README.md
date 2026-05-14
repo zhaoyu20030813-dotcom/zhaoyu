@@ -23,4 +23,4 @@
 
 本项目使用 GitHub Pages 自动部署
 
-在线访问：[👉 https://zhaoyu20030813-dotcom.github.io/zhaoyu/](👉 https://zhaoyu20030813-dotcom.github.io/zhaoyu/)
+在线访问：[👉 https://zhaoyu20030813-dotcom.github.io/zhaoyu/]
