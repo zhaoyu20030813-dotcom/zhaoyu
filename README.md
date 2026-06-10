@@ -11,6 +11,7 @@
 - [Week 6：传感器介绍与 ROS2 KITTI 实验](week6/)
 - [Week 7：Markdown 与 GitHub 作业整理](week7/)
 - [Week 8：Docker 安装与 ROS2 桌面容器](week8/)
+- [Week 9：机器人与机器视觉数学基础](week9/)
 - [Week 10：Docker 概念与 OpenCV 实验](week10/)
 - [Week 11: Docker 进阶与 GitHub Pages](week11/)
 - [Week 12:四足机器人仿真实验](week12/)
